@@ -7,24 +7,28 @@ import java.io.File;
 import java.io.IOException;
 
 import javax.imageio.ImageIO;
-import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * @author Micheal Walls
  * @author Robert Berry
  */
 public class CardGame extends JFrame {
-	
 	// Instance Variables
 	private static final long serialVersionUID = -3755250864096119104L;	// Required by JFrame, allows serializing of the Object
 	private Card previousCard;	// Reserve area in memory for a Card object
-	private int[] array_selectedCards = new int[8];
+	private ArrayList<Integer> arrayList_selectedCards = new ArrayList<Integer>();
 	private final String[] array_cardIdentifiers = {
 			"card_1c.png", "card_1d.png", "card_1h.png", "card_1s.png", 
 		   "card_2c.png", "card_2d.png", "card_2h.png", "card_2s.png", "card_3c.png", 
@@ -38,6 +42,15 @@ public class CardGame extends JFrame {
 		   "card_12c.png", "card_12d.png", "card_12h.png", "card_12s.png", "card_13c.png", 
 		   "card_13d.png", "card_13h.png", "card_13s.png"
 	};
+	private int pairsMatched = 0;
+	private int playerScore = 0;
+	private Timer gameTimer = new Timer();
+	private int gameTime = 60;
+	private JTextField textField_message;
+	private JTextField textField_score;
+	private JTextField textField_timer;
+	private JPanel cardGroupBox;
+	private JPanel textFieldGroupBox;
 
 	/**
 	 * This is the default, no-argument Constructor for CardGame objects
@@ -52,37 +65,128 @@ public class CardGame extends JFrame {
 		previousCard = null;
 
 		// This instantiates an instance of our JFrame with a 4 x 4 Grid Layout
-		setLayout( new GridLayout(4,4) );
+		setLayout( new GridLayout(2,1) );
+
+		// Instantiate the textField JPanel
+		textFieldGroupBox = new JPanel();
 		
-		// Instantiate an instance of the Random object
-		Random randomCard = new Random();
-		int nextRandom = 0;
+		// Add the Message textField to the textField Group Box
+		textField_message = new JTextField( "Pick a Card, any card!" );
+		textFieldGroupBox.add( textField_message );
 		
-		for( int i = 0; i < 8; i++ ) {
-			// A flag for the while loop
-			boolean uniqueCardFound = true;
+		// Add the Score textField to the textField Group Box
+		textField_score = new JTextField( "Your score is: " + String.valueOf(playerScore) );
+		textFieldGroupBox.add( textField_score );
+		
+		// Add the Timer textField to the textField Group Box
+		textField_timer = new JTextField( "Time remaining: " + String.valueOf(gameTime) );
+		textFieldGroupBox.add( textField_timer );
 
-			while( uniqueCardFound ) {
-				// Generate a random integer
-				nextRandom = randomCard.nextInt(51);
+		// Add the textField Group Box to the JFrame
+		add(textFieldGroupBox);
+		
+		// Create and add the Game buttons to the JFrame
+		drawGameBoard();
+		
+		/*
+		 * Game Timer
+		 */
+		gameTimer.scheduleAtFixedRate(new TimerTask() {
 
-				// Make sure this card hasn't already been chosen
-				for( int y = 0; y < array_selectedCards.length; y++ ) {
+	        public void run() {
+	        	if( gameTime < 2 ) {
+	    			// Time is up!
+	        		int userResponse = JOptionPane.showConfirmDialog( CardGame.this, String.format("Your time is up! Your score was: %d\n\nWould you like to play again?", playerScore), String.format("Congratulations!"), JOptionPane.INFORMATION_MESSAGE, JOptionPane.YES_NO_OPTION);
+					
+					if( userResponse == 0 ) {
+						// Reset the board to play again
+						resetGame();
+					} else {
+						// Exit with 0 error code
+						System.exit(0);
+					}
+	    		} else {
+	    			// Decrement the game time and continue
+	    			gameTime--;
+	    			textField_timer.setText( "Time remaining: " + String.valueOf(gameTime) );
+	    		}// end if
+	        }// end run method
 
-					if ( array_selectedCards[y] != nextRandom ) {
-						uniqueCardFound = false;
-					}// end if
-
-				}// end inner for loop
-
-			}// end while loop
-
-			// The compiler warns we never use them. Just suppress it :P
-			@SuppressWarnings("unused")
-			Card testCard1 = new Card( array_cardIdentifiers[nextRandom] );
-		}// end outer for loop
-
+	    }, 1000, 1000);	// end gameTimer schedule definition
 	}// end CardGame Constructor
+	
+	private void updateScore() {
+		// Update the game score
+		this.textField_score.setText( "Your score is " + this.playerScore );
+	}// end setScore method
+	
+	/**
+	 * This method initializes the game board
+	 */
+	private void drawGameBoard() throws IOException {
+		int nextRandom = 0;
+
+		boolean matchNotFound = true;
+
+		while( arrayList_selectedCards.size() != 8 ) {
+			// Generate a new random integer
+			Random randomCard = new Random();
+			nextRandom = randomCard.nextInt(51);
+
+			// Make sure this card hasn't already been chosen
+			for( int y = 0; y < arrayList_selectedCards.size(); y++ ) {
+				if ( arrayList_selectedCards.get(y) == nextRandom ) {
+					matchNotFound = false;
+				}// end if
+			}// end inner for loop
+
+			if( matchNotFound )
+				arrayList_selectedCards.add(nextRandom);
+		}// end while loop
+		
+		// Duplicate the collection of 8 generated cards
+		for( int i = 0; i < 8; i++ ) {
+			arrayList_selectedCards.add( arrayList_selectedCards.get(i) );
+		}// end for loop
+		
+		// Sort the Cards
+		Collections.shuffle(arrayList_selectedCards);
+		
+		// Create a JPanel for our cards
+		cardGroupBox = new JPanel();
+		cardGroupBox.setLayout( new GridLayout(4,4) );
+		//cardGroupBox.setSize(600, 800);
+		
+		// Instantiate all 16 of the cards
+		for( int i = 0; i < 16; i++ ) {
+			// When we instantiate these Card objects, it warns that magicalCardContainer is never used
+			// I just suppress it because I am Awesome.
+			@SuppressWarnings("unused")
+			Card magicalCardContainer = new Card( array_cardIdentifiers[ arrayList_selectedCards.get(i) ] );
+		}// end for loop
+
+		add(cardGroupBox);
+	}// end drawGameBoard method
+	
+	/**
+	 * Method to reset the Game
+	 */
+	public void resetGame() {
+		dispose();
+
+		// Start a new game! :)
+		try {
+			CardGame newGame = new CardGame();
+			
+			// Set some properties of the JFrame (Window)
+			newGame.setLocationRelativeTo(null);		// Center it by making it unrelated to any other window
+			newGame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+			newGame.setSize(800,600);	// Window size
+			newGame.setVisible(true);	// Verbose!
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}// end method resetGame
 	
 	/**
 	 * This class defines a generic Card object
@@ -100,19 +204,21 @@ public class CardGame extends JFrame {
 		/**
 		 * Constructor for instances of Card objects
 		 * 
-		 * @param cardValueIn Card Value as a number (1 - 13:ace - king)
-		 * @param cardSuitIn Card Suit as a single character (h:hearts)
+		 * @param cardIdentifier String to control what the card will be
 		 * @throws IOException Throws when the card image could not be found
 		 */
 		public Card(String cardIdentifier) throws IOException {
 			// Store the card's properties
 			this.cardIdentifier = cardIdentifier;
 			
-			Icon cardIcon = new ImageIcon( ImageIO.read(new File("res/images/" + this.cardIdentifier)) );
+			// Instantiate a new button for the Card
+			cardButton = new JButton( new ImageIcon( ImageIO.read(new File("res/images/cardback.png")) ) );
 			
-			cardButton = new JButton(cardIcon);
-			add(cardButton);
+			// Add the new Card to the window
+			cardGroupBox.add(cardButton);
+			//add(cardButton);
 			
+			// Register the click handler
 			CardClickHandler clickHandler = new CardClickHandler();
 			cardButton.addActionListener(clickHandler);
 		}// end Card Constructor
@@ -124,11 +230,11 @@ public class CardGame extends JFrame {
 		 * @return boolean True if cards math and False if they are not a match
 		 */
 		public boolean Compare(Card cardToCompare) {
-			//
-			// TODO: Compare the two card objects together
-			//
-			return false;
-			
+			if( cardIdentifier == cardToCompare.cardIdentifier ) {
+				return true;
+			} else {
+				return false;
+			}
 		}// end Compare method
 		
 		/**
@@ -140,35 +246,106 @@ public class CardGame extends JFrame {
 		private class CardClickHandler implements ActionListener {
 
 			/**
-			 * This implements the abstract actionPerformed method declared in ActionListener interface
+			 * This overrides the abstract actionPerformed method declared in ActionListener interface
+			 * 
+			 * It Suppresses deprecation warnings so I can use hide() in peace :)
 			 */
+			@SuppressWarnings("deprecation")
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if( previousCard == null ) {
-					//
-					// DEBUG: Show that the First card was clicked. Remove later on...
-					//
-					JOptionPane.showMessageDialog( CardGame.this, String.format("You pressed the FIRST card!") );
-					previousCard = Card.this;
-					//
-					// TODO: Flip the card to reveal what it is.
-					//
-				} else {
-					//
-					// DEBUG: Show that the Second card was clicked. Remove later on...
-					//
-					JOptionPane.showMessageDialog( CardGame.this, String.format("You pressed a SECOND card.\nCompare this card to " + previousCard.cardIdentifier));
-					//
-					// TODO: Flip the card.
-					//
-					// TODO: Compare this card to the previousCard.
-					//
-					// TODO: If cards match, remove them both and clear previousCard.
-					//
-					// TODO: IF cards do not match, flip them both back and clear previousCard.
-					//
+				// Flip the Card
+				try {
+					Card.this.cardButton.setIcon( new ImageIcon( ImageIO.read(new File("res/images/" + Card.this.cardIdentifier)) ));
+				} catch (IOException e1) {
+					System.out.println("Could not find the new ImageIcon!");
 				}
+
+				if( previousCard == null ) {
+					// Store the selected card
+					previousCard = Card.this;
+					
+					// Update the message
+					CardGame.this.textField_message.setText( "Now, pick another card!" );
+				} else {					
+					if( Card.this == previousCard ) {
+						// The user clicked the same card! Sneaky sneaky! :)
+					} else {
+						// Compare the cards
+						if( Card.this.Compare( previousCard ) ) {
+							Card.this.cardButton.hide();
+							previousCard.cardButton.hide();
+
+							// Clear the Previous Card
+							previousCard = null;
+							
+							// Increment our match counter
+							pairsMatched++;
+							
+							// Increase player's score
+							CardGame.this.playerScore = CardGame.this.playerScore + 2;
+							
+							// Update score on the gameBoard
+							CardGame.this.updateScore();
+							
+							// Update the message
+							CardGame.this.textField_message.setText( "Pick a card, any card!" );
+							
+							// Find a winner!
+							if( pairsMatched == 8 ) {
+								// Alert the user and ask them if they'd like to play again
+								int userResponse = JOptionPane.showConfirmDialog( CardGame.this, String.format("You won! Would you like to play again?"), String.format("Congratulations!"), JOptionPane.INFORMATION_MESSAGE, JOptionPane.YES_NO_OPTION);
+								
+								if( userResponse == 0 ) {
+									// Reset the board to play again
+									resetGame();
+								} else {
+									// Exit with 0 error code
+									System.exit(0);
+								}
+							}
+						} else {
+							// The cards did not match, so flip them back over
+							resetPair(Card.this, previousCard);
+							
+							// Clear the Previous Card
+							previousCard = null;
+							
+							// Update the message
+							CardGame.this.textField_message.setText( "Pick a card, any card!" );
+						}// end if
+					}// end if
+				}// end if
 			}// end actionPerformed method
+			
+			public void resetPair(final Card cardOne, final Card cardTwo) {
+				// Create and start a new thread
+				new Thread() {
+			        @Override
+			        public void run() {
+			        	// First sleep for 1 second
+			            try {
+			                sleep(1000);
+			            } catch (InterruptedException e) {
+			            	e.printStackTrace();
+			            }
+			            
+						// Show the 2nd card's contents
+						try {
+							cardOne.cardButton.setIcon( new ImageIcon( ImageIO.read(new File("res/images/" + Card.this.cardIdentifier)) ));
+						} catch (IOException e1) {
+							e1.printStackTrace();
+						}
+						
+						// Flip the unmatched pair of cards back
+						try {
+							cardOne.cardButton.setIcon( new ImageIcon( ImageIO.read(new File("res/images/cardback.png")) ));
+							cardTwo.cardButton.setIcon( new ImageIcon( ImageIO.read(new File("res/images/cardback.png")) ));
+						} catch (IOException e2) {
+							e2.printStackTrace();
+						}
+			        }
+			    }.start();
+			}// end resetPair method
 			
 		}// end CardClickHandler class
 		
